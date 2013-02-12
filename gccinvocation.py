@@ -13,6 +13,7 @@ class GccInvocation:
         self.sources = []
         self.defines = []
         self.includepaths = []
+        self.otherargs = []
 
         parser = argparse.ArgumentParser()
         parser.add_argument("-o", type=str)
@@ -21,16 +22,18 @@ class GccInvocation:
         for arg in remainder:
             if arg.startswith('-D'):
                 self.defines.append(arg[2:])
-            if arg.startswith('-I'):
+            elif arg.startswith('-I'):
                 self.includepaths.append(arg[2:])
-            if not arg.startswith('-'):
+            elif arg.startswith('-'):
+                self.otherargs.append(arg)
+            else:
                 self.sources.append(arg)
 
     def __repr__(self):
         return ('GccInvocation(executable=%r, sources=%r,'
-                ' defines=%r, includepaths=%r)'
+                ' defines=%r, includepaths=%r, otherargs=%r)'
                 % (self.executable, self.sources, self.defines,
-                   self.includepaths))
+                   self.includepaths, self.otherargs))
 
 class Tests(unittest.TestCase):
     def test_parse_compile(self):
@@ -50,13 +53,34 @@ class Tests(unittest.TestCase):
                          ['_GNU_SOURCE', 'NDEBUG', '_GNU_SOURCE',
                           'VERSION="0.7"'])
         self.assertEqual(gccinv.includepaths, ['/usr/include/python2.7'])
+        self.assertEqual(gccinv.otherargs,
+                         ['-pthread', '-fno-strict-aliasing', '-O2', '-g',
+                          '-pipe', '-Wall', '-Wp,-D_FORTIFY_SOURCE=2',
+                          '-fexceptions', '-fstack-protector',
+                          '--param=ssp-buffer-size=4', '-m64',
+                          '-mtune=generic', '-fPIC', '-fwrapv', '-O2',
+                          '-g', '-pipe', '-Wall', '-Wp,-D_FORTIFY_SOURCE=2',
+                          '-fexceptions', '-fstack-protector',
+                          '--param=ssp-buffer-size=4', '-m64',
+                          '-mtune=generic', '-fPIC', '-fwrapv', '-fPIC',
+                          '-c'])
 
         self.assertEqual(str(gccinv),
                          "GccInvocation(executable='gcc',"
                          " sources=['python-ethtool/ethtool.c'],"
                          " defines=['_GNU_SOURCE', 'NDEBUG', '_GNU_SOURCE',"
                          " 'VERSION=\"0.7\"'],"
-                         " includepaths=['/usr/include/python2.7'])")
+                         " includepaths=['/usr/include/python2.7'],"
+                         " otherargs=['-pthread', '-fno-strict-aliasing', '-O2', '-g',"
+                         " '-pipe', '-Wall', '-Wp,-D_FORTIFY_SOURCE=2',"
+                         " '-fexceptions', '-fstack-protector',"
+                         " '--param=ssp-buffer-size=4', '-m64',"
+                         " '-mtune=generic', '-fPIC', '-fwrapv', '-O2',"
+                         " '-g', '-pipe', '-Wall', '-Wp,-D_FORTIFY_SOURCE=2',"
+                         " '-fexceptions', '-fstack-protector',"
+                         " '--param=ssp-buffer-size=4', '-m64',"
+                         " '-mtune=generic', '-fPIC', '-fwrapv', '-fPIC',"
+                         " '-c'])")
 
     def test_parse_link(self):
         args = ('gcc -pthread -shared -Wl,-z,relro'

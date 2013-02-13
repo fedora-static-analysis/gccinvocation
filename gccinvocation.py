@@ -42,6 +42,18 @@ class GccInvocation:
                 % (self.executable, self.sources, self.defines,
                    self.includepaths, self.otherargs))
 
+    def restrict_to_one_source(self, source):
+        """
+        Make a new GccInvocation, preserving most arguments, but
+        restricting the compilation to just the given source file
+        """
+        newargv = [self.executable]
+        newargv += ['-D%s' % define for define in self.defines]
+        newargv += ['-I%s' % include for include in self.includepaths]
+        newargv += self.otherargs
+        newargv += [source]
+        return GccInvocation(newargv)
+
 class Tests(unittest.TestCase):
     def test_parse_compile(self):
         args = ('gcc -pthread -fno-strict-aliasing -O2 -g -pipe -Wall'
@@ -157,6 +169,27 @@ class Tests(unittest.TestCase):
                       gccinv.includepaths)
         self.assertIn('-Wall', gccinv.otherargs)
         self.assertIn('-MP', gccinv.otherargs)
+
+        '/usr/bin/c++   -DPYSIDE_EXPORTS -DQT_GUI_LIB -DQT_CORE_LIB -DQT_NO_DEBUG -O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector --param=ssp-buffer-size=4  -m64 -mtune=generic  -Wall -fvisibility=hidden -Wno-strict-aliasing -O3 -DNDEBUG -fPIC -I/usr/include/QtGui -I/usr/include/QtCore -I/builddir/build/BUILD/pyside-qt4.7+1.1.0/libpyside -I/usr/include/shiboken -I/usr/include/python2.7    -o CMakeFiles/pyside.dir/dynamicqmetaobject.cpp.o -c /builddir/build/BUILD/pyside-qt4.7+1.1.0/libpyside/dynamicqmetaobject.cpp'
+
+    def test_restrict_to_one_source(self):
+        args = ('gcc -fPIC -shared -flto -flto-partition=none'
+                ' -Isomepath -DFOO'
+                ' -o output.o input-f.c input-g.c input-h.c')
+        gccinv = GccInvocation(args.split())
+        self.assertEqual(gccinv.sources,
+                         ['input-f.c', 'input-g.c', 'input-h.c'])
+
+        gccinv2 = gccinv.restrict_to_one_source('input-g.c')
+        self.assertEqual(gccinv2.sources,
+                         ['input-g.c'])
+        self.assertEqual(gccinv2.argv,
+                         ['gcc',
+                          '-DFOO',
+                          '-Isomepath',
+                          '-fPIC', '-shared',
+                          '-flto', '-flto-partition=none',
+                          'input-g.c'])
 
 if __name__ == '__main__':
     unittest.main()

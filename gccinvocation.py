@@ -120,6 +120,27 @@ class Tests(unittest.TestCase):
         self.assertEqual(gccinv.defines, [])
         self.assertEqual(gccinv.includepaths, [])
 
+    def test_parse_cplusplus(self):
+        args = ('/usr/bin/c++   -DPYSIDE_EXPORTS -DQT_GUI_LIB -DQT_CORE_LIB'
+                ' -DQT_NO_DEBUG -O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2'
+                ' -fexceptions -fstack-protector --param=ssp-buffer-size=4'
+                '  -m64 -mtune=generic  -Wall -fvisibility=hidden'
+                ' -Wno-strict-aliasing -O3 -DNDEBUG -fPIC'
+                ' -I/usr/include/QtGui -I/usr/include/QtCore'
+                ' -I/builddir/build/BUILD/pyside-qt4.7+1.1.0/libpyside'
+                ' -I/usr/include/shiboken -I/usr/include/python2.7'
+                '    -o CMakeFiles/pyside.dir/dynamicqmetaobject.cpp.o'
+                ' -c /builddir/build/BUILD/pyside-qt4.7+1.1.0/libpyside/dynamicqmetaobject.cpp')
+        gccinv = GccInvocation(args.split())
+        self.assertEqual(gccinv.executable, '/usr/bin/c++')
+        self.assertEqual(gccinv.sources,
+                         ['/builddir/build/BUILD/pyside-qt4.7+1.1.0/libpyside/dynamicqmetaobject.cpp'])
+        self.assertIn('PYSIDE_EXPORTS', gccinv.defines)
+        self.assertIn('NDEBUG', gccinv.defines)
+        self.assertIn('/builddir/build/BUILD/pyside-qt4.7+1.1.0/libpyside',
+                      gccinv.includepaths)
+        self.assertIn('--param=ssp-buffer-size=4', gccinv.otherargs)
+
     def test_complex_invocation(self):
         # A command line taken from libreoffice/3.5.0.3/5.fc17/x86_64/build.log was:
         #   R=/builddir/build/BUILD && S=$R/libreoffice-3.5.0.3 && O=$S/solver/unxlngx6.pro && W=$S/workdir/unxlngx6.pro &&  mkdir -p $W/CxxObject/xml2cmp/source/support/ $W/Dep/CxxObject/xml2cmp/source/support/ && g++ -DCPPU_ENV=gcc3 -DENABLE_GRAPHITE -DENABLE_GTK -DENABLE_KDE4 -DGCC -DGXX_INCLUDE_PATH=/usr/include/c++/4.7.2 -DHAVE_GCC_VISIBILITY_FEATURE -DHAVE_THREADSAFE_STATICS -DLINUX -DNDEBUG -DOPTIMIZE -DOSL_DEBUG_LEVEL=0 -DPRODUCT -DSOLAR_JAVA -DSUPD=350 -DUNIX -DUNX -DVCL -DX86_64 -D_PTHREADS -D_REENTRANT   -Wall -Wendif-labels -Wextra -fmessage-length=0 -fno-common -pipe  -fPIC -Wshadow -Wsign-promo -Woverloaded-virtual -Wno-non-virtual-dtor  -fvisibility=hidden  -fvisibility-inlines-hidden  -std=c++0x  -ggdb2  -Wp,-D_FORTIFY_SOURCE=2 -fstack-protector --param=ssp-buffer-size=4 -m64 -mtune=generic -DEXCEPTIONS_ON -fexceptions -fno-enforce-eh-specs   -Wp,-D_FORTIFY_SOURCE=2 -fstack-protector --param=ssp-buffer-size=4 -m64 -mtune=generic -c $S/xml2cmp/source/support/cmdline.cxx -o $W/CxxObject/xml2cmp/source/support/cmdline.o -MMD -MT $W/CxxObject/xml2cmp/source/support/cmdline.o -MP -MF $W/Dep/CxxObject/xml2cmp/source/support/cmdline.d -I$S/xml2cmp/source/support/ -I$O/inc/stl -I$O/inc/external -I$O/inc -I$S/solenv/inc/unxlngx6 -I$S/solenv/inc -I$S/res -I/usr/lib/jvm/java-1.7.0-openjdk.x86_64/include -I/usr/lib/jvm/java-1.7.0-openjdk.x86_64/include/linux -I/usr/lib/jvm/java-1.7.0-openjdk.x86_64/include/native_threads/include
@@ -169,8 +190,6 @@ class Tests(unittest.TestCase):
                       gccinv.includepaths)
         self.assertIn('-Wall', gccinv.otherargs)
         self.assertIn('-MP', gccinv.otherargs)
-
-        '/usr/bin/c++   -DPYSIDE_EXPORTS -DQT_GUI_LIB -DQT_CORE_LIB -DQT_NO_DEBUG -O2 -g -pipe -Wall -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector --param=ssp-buffer-size=4  -m64 -mtune=generic  -Wall -fvisibility=hidden -Wno-strict-aliasing -O3 -DNDEBUG -fPIC -I/usr/include/QtGui -I/usr/include/QtCore -I/builddir/build/BUILD/pyside-qt4.7+1.1.0/libpyside -I/usr/include/shiboken -I/usr/include/python2.7    -o CMakeFiles/pyside.dir/dynamicqmetaobject.cpp.o -c /builddir/build/BUILD/pyside-qt4.7+1.1.0/libpyside/dynamicqmetaobject.cpp'
 
     def test_restrict_to_one_source(self):
         args = ('gcc -fPIC -shared -flto -flto-partition=none'

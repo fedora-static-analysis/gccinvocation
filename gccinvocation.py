@@ -1,4 +1,5 @@
 import argparse
+import os
 import unittest
 
 class GccInvocation:
@@ -10,6 +11,7 @@ class GccInvocation:
         self.argv = argv
 
         self.executable = argv[0]
+        self.progname = os.path.basename(self.executable)
         self.sources = []
         self.defines = []
         self.includepaths = []
@@ -146,6 +148,7 @@ class Tests(unittest.TestCase):
                 ' -c /builddir/build/BUILD/pyside-qt4.7+1.1.0/libpyside/dynamicqmetaobject.cpp')
         gccinv = GccInvocation(args.split())
         self.assertEqual(gccinv.executable, '/usr/bin/c++')
+        self.assertEqual(gccinv.progname, 'c++')
         self.assertEqual(gccinv.sources,
                          ['/builddir/build/BUILD/pyside-qt4.7+1.1.0/libpyside/dynamicqmetaobject.cpp'])
         self.assertIn('PYSIDE_EXPORTS', gccinv.defines)
@@ -261,6 +264,7 @@ class Tests(unittest.TestCase):
                   ' drivers/media/pci/mantis/mantis_uart.c')
         gccinv = GccInvocation(argstr.split())
         self.assertEqual(gccinv.executable, 'gcc')
+        self.assertEqual(gccinv.progname, 'gcc')
         self.assertEqual(gccinv.sources,
                          ['drivers/media/pci/mantis/mantis_uart.c'])
         self.assertIn('__KERNEL__', gccinv.defines)
@@ -304,6 +308,7 @@ class Tests(unittest.TestCase):
         gccinv = GccInvocation(argstr.split())
         self.assertEqual(gccinv.executable,
                          '/usr/libexec/gcc/x86_64-redhat-linux/4.4.7/cc1')
+        self.assertEqual(gccinv.progname, 'cc1')
         self.assertEqual(gccinv.sources,
                          ['drivers/media/pci/mantis/mantis_uart.c'])
 
@@ -311,6 +316,7 @@ class Tests(unittest.TestCase):
         argstr = 'objdump -h drivers/media/pci/mantis/.tmp_mantis_uart.o'
         gccinv = GccInvocation(argstr.split())
         self.assertEqual(gccinv.executable, 'objdump')
+        self.assertEqual(gccinv.progname, 'objdump')
 
 if __name__ == '__main__':
     unittest.main()

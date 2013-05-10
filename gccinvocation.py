@@ -15,7 +15,7 @@ class GccInvocation:
         self.includepaths = []
         self.otherargs = []
 
-        parser = argparse.ArgumentParser()
+        parser = argparse.ArgumentParser(add_help=False)
         parser.add_argument("-o", type=str)
 
         # Arguments for dependency generation that take a file argument:
@@ -306,6 +306,11 @@ class Tests(unittest.TestCase):
                          '/usr/libexec/gcc/x86_64-redhat-linux/4.4.7/cc1')
         self.assertEqual(gccinv.sources,
                          ['drivers/media/pci/mantis/mantis_uart.c'])
+
+    def test_not_gcc(self):
+        argstr = 'objdump -h drivers/media/pci/mantis/.tmp_mantis_uart.o'
+        gccinv = GccInvocation(argstr.split())
+        self.assertEqual(gccinv.executable, 'objdump')
 
 if __name__ == '__main__':
     unittest.main()

@@ -340,6 +340,12 @@ class Tests(unittest.TestCase):
         gccinv = GccInvocation(argstr.split())
         self.assertEqual(gccinv.sources, ['-'])
 
+    def test_print_file_name(self):
+        argstr = 'gcc -print-file-name=include'
+        gccinv = GccInvocation(argstr.split())
+        self.assertEqual(gccinv.sources, [])
+        self.assertIn('-print-file-name=include', gccinv.otherargs)
+
 
 if __name__ == '__main__':
     unittest.main()

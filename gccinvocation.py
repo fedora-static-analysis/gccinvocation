@@ -50,7 +50,7 @@ class GccInvocation:
                 self.defines.append(arg[2:])
             elif arg.startswith('-I'):
                 self.includepaths.append(arg[2:])
-            elif arg.startswith('-'):
+            elif arg.startswith('-') and arg != '-':
                 self.otherargs.append(arg)
             else:
                 self.sources.append(arg)
@@ -332,6 +332,13 @@ class Tests(unittest.TestCase):
         gccinv = GccInvocation(argstr.split())
         self.assertEqual(gccinv.executable, 'gcc')
         self.assertEqual(gccinv.sources, ['/dev/null'])
+
+    def test_pipes(self):
+        argstr = ('gcc -D__KERNEL__ -S -x c -c -O0 -mcmodel=kernel'
+                  ' -fstack-protector'
+                  ' - -o -')
+        gccinv = GccInvocation(argstr.split())
+        self.assertEqual(gccinv.sources, ['-'])
 
 
 if __name__ == '__main__':

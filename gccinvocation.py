@@ -24,6 +24,13 @@ class GccInvocation:
         parser.add_argument("-MQ", type=str)
         # (for now, drop them on the floor)
 
+        # Various other arguments that take a 2nd argument:
+        for arg in ['-include', '-imacros', '-idirafter', '-iprefix',
+                    '-iwithprefix', '-iwithprefixbefore', '-isysroot',
+                    '-imultilib', '-isystem', '-iquote']:
+            parser.add_argument(arg, type=str)
+        # (for now, drop them on the floor)
+
         args, remainder = parser.parse_known_args(argv[1:])
 
         for arg in remainder:
@@ -209,6 +216,50 @@ class Tests(unittest.TestCase):
                           '-fPIC', '-shared',
                           '-flto', '-flto-partition=none',
                           'input-g.c'])
+
+    def test_kernel_build(self):
+        argstr = ('gcc -Wp,-MD,drivers/media/pci/mantis/.mantis_uart.o.d'
+                  ' -nostdinc -isystem /usr/lib/gcc/x86_64-redhat-linux/4.4.7/include'
+                  ' -I/home/david/linux-3.9.1/arch/x86/include'
+                  ' -Iarch/x86/include/generated -Iinclude'
+                  ' -I/home/david/linux-3.9.1/arch/x86/include/uapi'
+                  ' -Iarch/x86/include/generated/uapi'
+                  ' -I/home/david/linux-3.9.1/include/uapi'
+                  ' -Iinclude/generated/uapi'
+                  ' -include /home/david/linux-3.9.1/include/linux/kconfig.h'
+                  ' -D__KERNEL__ -Wall -Wundef -Wstrict-prototypes'
+                  ' -Wno-trigraphs -fno-strict-aliasing -fno-common'
+                  ' -Werror-implicit-function-declaration'
+                  ' -Wno-format-security -fno-delete-null-pointer-checks'
+                  ' -Os -m64 -mtune=generic -mno-red-zone -mcmodel=kernel'
+                  ' -funit-at-a-time -maccumulate-outgoing-args'
+                  ' -fstack-protector -DCONFIG_AS_CFI=1'
+                  ' -DCONFIG_AS_CFI_SIGNAL_FRAME=1'
+                  ' -DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1'
+                  ' -DCONFIG_AS_AVX=1 -pipe -Wno-sign-compare'
+                  ' -fno-asynchronous-unwind-tables -mno-sse -mno-mmx'
+                  ' -mno-sse2 -mno-3dnow -mno-avx -fno-reorder-blocks'
+                  ' -fno-ipa-cp-clone -Wframe-larger-than=2048'
+                  ' -Wno-unused-but-set-variable -fno-omit-frame-pointer'
+                  ' -fno-optimize-sibling-calls -g'
+                  ' -femit-struct-debug-baseonly -fno-var-tracking -pg'
+                  ' -fno-inline-functions-called-once'
+                  ' -Wdeclaration-after-statement -Wno-pointer-sign'
+                  ' -fno-strict-overflow -fconserve-stack'
+                  ' -DCC_HAVE_ASM_GOTO -Idrivers/media/dvb-core/'
+                  ' -Idrivers/media/dvb-frontends/ -fprofile-arcs'
+                  ' -ftest-coverage -DKBUILD_STR(s)=#s'
+                  ' -DKBUILD_BASENAME=KBUILD_STR(mantis_uart)'
+                  ' -DKBUILD_MODNAME=KBUILD_STR(mantis_core) -c'
+                  ' -o drivers/media/pci/mantis/.tmp_mantis_uart.o'
+                  ' drivers/media/pci/mantis/mantis_uart.c')
+        gccinv = GccInvocation(argstr.split())
+        self.assertEqual(gccinv.executable, 'gcc')
+        self.assertEqual(gccinv.sources,
+                         ['drivers/media/pci/mantis/mantis_uart.c'])
+        self.assertIn('__KERNEL__', gccinv.defines)
+        self.assertIn('KBUILD_STR(s)=#s', gccinv.defines)
+
 
 if __name__ == '__main__':
     unittest.main()

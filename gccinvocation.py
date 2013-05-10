@@ -17,10 +17,15 @@ class GccInvocation:
         self.includepaths = []
         self.otherargs = []
 
+        if self.progname == 'collect2':
+            # collect2 appears to have a (mostly) different set of
+            # arguments to the rest:
+            return
+
         parser = argparse.ArgumentParser(add_help=False)
         parser.add_argument("-o", type=str)
 
-        # Arguments that take a file argument:
+        # Arguments that take a further param:
         parser.add_argument("-x", type=str)
         # (for now, drop them on the floor)
 
@@ -345,6 +350,22 @@ class Tests(unittest.TestCase):
         gccinv = GccInvocation(argstr.split())
         self.assertEqual(gccinv.sources, [])
         self.assertIn('-print-file-name=include', gccinv.otherargs)
+
+    def test_collect2(self):
+        # From a kernel build:
+        argstr = ('/usr/libexec/gcc/x86_64-redhat-linux/4.4.7/collect2'
+                  ' --eh-frame-hdr --build-id -m elf_x86_64'
+                  ' --hash-style=gnu -dynamic-linker'
+                  ' /lib64/ld-linux-x86-64.so.2 -o .20501.tmp'
+                  ' -L/usr/lib/gcc/x86_64-redhat-linux/4.4.7'
+                  ' -L/usr/lib/gcc/x86_64-redhat-linux/4.4.7'
+                  ' -L/usr/lib/gcc/x86_64-redhat-linux/4.4.7/../../../../lib64'
+                  ' -L/lib/../lib64 -L/usr/lib/../lib64'
+                  ' -L/usr/lib/gcc/x86_64-redhat-linux/4.4.7/../../..'
+                  ' --build-id /tmp/cckRREmI.o')
+        gccinv = GccInvocation(argstr.split())
+        self.assertEqual(gccinv.progname, 'collect2')
+        self.assertEqual(gccinv.sources, [])
 
 
 if __name__ == '__main__':

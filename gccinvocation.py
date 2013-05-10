@@ -22,12 +22,18 @@ class GccInvocation:
         parser.add_argument("-MF", type=str)
         parser.add_argument("-MT", type=str)
         parser.add_argument("-MQ", type=str)
+        parser.add_argument("-MD", type=str)
         # (for now, drop them on the floor)
 
         # Various other arguments that take a 2nd argument:
         for arg in ['-include', '-imacros', '-idirafter', '-iprefix',
                     '-iwithprefix', '-iwithprefixbefore', '-isysroot',
                     '-imultilib', '-isystem', '-iquote']:
+            parser.add_argument(arg, type=str)
+        # (for now, drop them on the floor)
+
+        # Various arguments to cc1 etc that take a 2nd argument:
+        for arg in ['-dumpbase', '-auxbase-strip']:
             parser.add_argument(arg, type=str)
         # (for now, drop them on the floor)
 
@@ -260,6 +266,46 @@ class Tests(unittest.TestCase):
         self.assertIn('__KERNEL__', gccinv.defines)
         self.assertIn('KBUILD_STR(s)=#s', gccinv.defines)
 
+    def test_kernel_cc1(self):
+        argstr = ('/usr/libexec/gcc/x86_64-redhat-linux/4.4.7/cc1 -quiet'
+                  ' -nostdinc'
+                  ' -I/home/david/linux-3.9.1/arch/x86/include'
+                  ' -Iarch/x86/include/generated -Iinclude'
+                  ' -I/home/david/linux-3.9.1/arch/x86/include/uapi'
+                  ' -Iarch/x86/include/generated/uapi'
+                  ' -I/home/david/linux-3.9.1/include/uapi'
+                  ' -Iinclude/generated/uapi -Idrivers/media/dvb-core/'
+                  ' -Idrivers/media/dvb-frontends/ -D__KERNEL__'
+                  ' -DCONFIG_AS_CFI=1 -DCONFIG_AS_CFI_SIGNAL_FRAME=1'
+                  ' -DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1'
+                  ' -DCONFIG_AS_AVX=1 -DCC_HAVE_ASM_GOTO -DKBUILD_STR(s)=#s'
+                  ' -DKBUILD_BASENAME=KBUILD_STR(mantis_uart)'
+                  ' -DKBUILD_MODNAME=KBUILD_STR(mantis_core)'
+                  ' -isystem /usr/lib/gcc/x86_64-redhat-linux/4.4.7/include'
+                  ' -include /home/david/linux-3.9.1/include/linux/kconfig.h'
+                  ' -MD drivers/media/pci/mantis/.mantis_uart.o.d'
+                  ' drivers/media/pci/mantis/mantis_uart.c -quiet'
+                  ' -dumpbase mantis_uart.c -m64 -mtune=generic'
+                  ' -mno-red-zone -mcmodel=kernel -maccumulate-outgoing-args'
+                  ' -mno-sse -mno-mmx -mno-sse2 -mno-3dnow -mno-avx'
+                  ' -auxbase-strip drivers/media/pci/mantis/.tmp_mantis_uart.o'
+                  ' -g -Os -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs'
+                  ' -Werror-implicit-function-declaration -Wno-format-security'
+                  ' -Wno-sign-compare -Wframe-larger-than=2048'
+                  ' -Wno-unused-but-set-variable -Wdeclaration-after-statement'
+                  ' -Wno-pointer-sign -p -fno-strict-aliasing -fno-common'
+                  ' -fno-delete-null-pointer-checks -funit-at-a-time'
+                  ' -fstack-protector -fno-asynchronous-unwind-tables'
+                  ' -fno-reorder-blocks -fno-ipa-cp-clone'
+                  ' -fno-omit-frame-pointer -fno-optimize-sibling-calls'
+                  ' -femit-struct-debug-baseonly -fno-var-tracking'
+                  ' -fno-inline-functions-called-once -fno-strict-overflow'
+                  ' -fconserve-stack -fprofile-arcs -ftest-coverage -o -')
+        gccinv = GccInvocation(argstr.split())
+        self.assertEqual(gccinv.executable,
+                         '/usr/libexec/gcc/x86_64-redhat-linux/4.4.7/cc1')
+        self.assertEqual(gccinv.sources,
+                         ['drivers/media/pci/mantis/mantis_uart.c'])
 
 if __name__ == '__main__':
     unittest.main()

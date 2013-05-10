@@ -2,6 +2,43 @@ import argparse
 import os
 import unittest
 
+def cmdline_to_argv(cmdline):
+    """
+    Reconstruct an argv list from a cmdline string
+    """
+    # Convert the input str to a list of characters
+    # and Quoted instances
+    def iter_fragments():
+        class Quoted:
+            def __init__(self, quotechar, text):
+                self.quotechar = quotechar
+                self.text = text
+            def __repr__(self):
+                return 'Quoted(%r, %r)' % (self.quotechar, self.text)
+            def __str__(self):
+                return '%s%s%s' % (self.quotechar, self.text, self.quotechar)
+
+        for i, fragment in enumerate(cmdline.split('"')):
+            if i % 2:
+                # within a quoted section:
+                yield Quoted('"', fragment)
+            else:
+                for ch in fragment:
+                    yield ch
+
+    # Now split these characters+Quoted by whitespace:
+    result = []
+    pending_arg = ''
+    for fragment in iter_fragments():
+        if fragment in (' ', '\t'):
+            result.append(pending_arg)
+            pending_arg = ''
+        else:
+            pending_arg += str(fragment)
+    if pending_arg:
+        result.append(pending_arg)
+    return result
+
 class GccInvocation:
     """
     Parse a command-line invocation of GCC and extract various options
@@ -60,6 +97,10 @@ class GccInvocation:
             else:
                 self.sources.append(arg)
 
+    @classmethod
+    def from_cmdline(cls, cmdline):
+        return cls(cmdline_to_argv(cmdline))
+
     def __repr__(self):
         return ('GccInvocation(executable=%r, sources=%r,'
                 ' defines=%r, includepaths=%r, otherargs=%r)'
@@ -78,7 +119,33 @@ class GccInvocation:
         newargv += [source]
         return GccInvocation(newargv)
 
-class Tests(unittest.TestCase):
+class TestCmdlineToArgV(unittest.TestCase):
+    def test_simple(self):
+        argstr = ('gcc -o scripts/genksyms/genksyms'
+                  ' scripts/genksyms/genksyms.o'
+                  ' scripts/genksyms/parse.tab.o'
+                  ' scripts/genksyms/lex.lex.o')
+        self.assertEqual(cmdline_to_argv(argstr),
+                         ['gcc', '-o', 'scripts/genksyms/genksyms',
+                          'scripts/genksyms/genksyms.o',
+                          'scripts/genksyms/parse.tab.o',
+                          'scripts/genksyms/lex.lex.o'])
+
+    def test_quoted(self):
+        # (heavily edited from a kernel build)
+        argstr = ('cc1 -quiet'
+                  ' -DCONFIG_AS_CFI_SIGNAL_FRAME=1'
+                  # Here's the awkward argument:
+                  ' -DIPATH_IDSTR="QLogic kernel.org driver"'
+                  ' -DIPATH_KERN_TYPE=0 -DKBUILD_STR(s)=#s'
+                  ' -fprofile-arcs -')
+        self.assertEqual(cmdline_to_argv(argstr),
+                         ['cc1', '-quiet', '-DCONFIG_AS_CFI_SIGNAL_FRAME=1',
+                          '-DIPATH_IDSTR="QLogic kernel.org driver"',
+                          '-DIPATH_KERN_TYPE=0', '-DKBUILD_STR(s)=#s',
+                          '-fprofile-arcs', '-'])
+
+class TestGccInvocation(unittest.TestCase):
     def test_parse_compile(self):
         args = ('gcc -pthread -fno-strict-aliasing -O2 -g -pipe -Wall'
                 ' -Wp,-D_FORTIFY_SOURCE=2 -fexceptions -fstack-protector'
@@ -379,6 +446,58 @@ class Tests(unittest.TestCase):
                          ['scripts/genksyms/genksyms.o',
                           'scripts/genksyms/parse.tab.o',
                           'scripts/genksyms/lex.lex.o'])
+
+    def test_quoted_spaces(self):
+        # Ensure we can handle spaces within a quoted argument
+        argstr = ('/usr/libexec/gcc/x86_64-redhat-linux/4.4.7/cc1 -quiet'
+                  ' -nostdinc'
+                  ' -I/home/david/linux-3.9.1/arch/x86/include'
+                  ' -Iarch/x86/include/generated -Iinclude'
+                  ' -I/home/david/linux-3.9.1/arch/x86/include/uapi'
+                  ' -Iarch/x86/include/generated/uapi'
+                  ' -I/home/david/linux-3.9.1/include/uapi'
+                  ' -Iinclude/generated/uapi -D__KERNEL__ -DCONFIG_AS_CFI=1'
+                  ' -DCONFIG_AS_CFI_SIGNAL_FRAME=1'
+                  ' -DCONFIG_AS_CFI_SECTIONS=1 -DCONFIG_AS_FXSAVEQ=1'
+                  ' -DCONFIG_AS_AVX=1 -DCC_HAVE_ASM_GOTO'
+                  # Here's the awkward argument:
+                  ' -DIPATH_IDSTR="QLogic kernel.org driver"'
+                  ' -DIPATH_KERN_TYPE=0 -DKBUILD_STR(s)=#s'
+                  ' -DKBUILD_BASENAME=KBUILD_STR(ipath_cq)'
+                  ' -DKBUILD_MODNAME=KBUILD_STR(ib_ipath)'
+                  ' -isystem /usr/lib/gcc/x86_64-redhat-linux/4.4.7/include'
+                  ' -include /home/david/linux-3.9.1/include/linux/kconfig.h'
+                  ' -MD drivers/infiniband/hw/ipath/.ipath_cq.o.d'
+                  ' drivers/infiniband/hw/ipath/ipath_cq.c'
+                  ' -quiet -dumpbase ipath_cq.c -m64 -mtune=generic'
+                  ' -mno-red-zone -mcmodel=kernel'
+                  ' -maccumulate-outgoing-args -mno-sse -mno-mmx -mno-sse2'
+                  ' -mno-3dnow -mno-avx -auxbase-strip'
+                  ' drivers/infiniband/hw/ipath/.tmp_ipath_cq.o'
+                  ' -g -Os -Wall -Wundef -Wstrict-prototypes'
+                  ' -Wno-trigraphs -Werror-implicit-function-declaration'
+                  ' -Wno-format-security -Wno-sign-compare'
+                  ' -Wframe-larger-than=2048 -Wno-unused-but-set-variable'
+                  ' -Wdeclaration-after-statement -Wno-pointer-sign -p'
+                  ' -fno-strict-aliasing -fno-common'
+                  ' -fno-delete-null-pointer-checks -funit-at-a-time'
+                  ' -fstack-protector -fno-asynchronous-unwind-tables'
+                  ' -fno-reorder-blocks -fno-ipa-cp-clone'
+                  ' -fno-omit-frame-pointer -fno-optimize-sibling-calls'
+                  ' -femit-struct-debug-baseonly -fno-var-tracking'
+                  ' -fno-inline-functions-called-once'
+                  ' -fno-strict-overflow -fconserve-stack'
+                  ' -fprofile-arcs -ftest-coverage -o -')
+        gccinv = GccInvocation.from_cmdline(argstr)
+        self.assertEqual(gccinv.sources,
+                         ['drivers/infiniband/hw/ipath/ipath_cq.c'])
+        self.assertIn('IPATH_IDSTR="QLogic kernel.org driver"',
+                      gccinv.defines)
+        self.assertIn('KBUILD_STR(s)=#s',
+                      gccinv.defines)
+        self.assertIn('KBUILD_BASENAME=KBUILD_STR(ipath_cq)',
+                      gccinv.defines)
+
 
 if __name__ == '__main__':
     unittest.main()

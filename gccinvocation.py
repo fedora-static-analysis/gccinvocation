@@ -367,6 +367,18 @@ class Tests(unittest.TestCase):
         self.assertEqual(gccinv.progname, 'collect2')
         self.assertEqual(gccinv.sources, [])
 
+    def test_link(self):
+        # From a kernel build:
+        argstr = ('gcc -o scripts/genksyms/genksyms'
+                  ' scripts/genksyms/genksyms.o'
+                  ' scripts/genksyms/parse.tab.o'
+                  ' scripts/genksyms/lex.lex.o')
+        gccinv = GccInvocation(argstr.split())
+        self.assertEqual(gccinv.progname, 'gcc')
+        self.assertEqual(gccinv.sources,
+                         ['scripts/genksyms/genksyms.o',
+                          'scripts/genksyms/parse.tab.o',
+                          'scripts/genksyms/lex.lex.o'])
 
 if __name__ == '__main__':
     unittest.main()

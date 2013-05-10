@@ -20,6 +20,10 @@ class GccInvocation:
         parser = argparse.ArgumentParser(add_help=False)
         parser.add_argument("-o", type=str)
 
+        # Arguments that take a file argument:
+        parser.add_argument("-x", type=str)
+        # (for now, drop them on the floor)
+
         # Arguments for dependency generation that take a file argument:
         parser.add_argument("-MF", type=str)
         parser.add_argument("-MT", type=str)
@@ -317,6 +321,18 @@ class Tests(unittest.TestCase):
         gccinv = GccInvocation(argstr.split())
         self.assertEqual(gccinv.executable, 'objdump')
         self.assertEqual(gccinv.progname, 'objdump')
+
+    def test_dash_x(self):
+        argstr = ('gcc -D__KERNEL__ -Wall -Wundef -Wstrict-prototypes'
+                  ' -Wno-trigraphs -fno-strict-aliasing -fno-common'
+                  ' -Werror-implicit-function-declaration'
+                  ' -Wno-format-security -fno-delete-null-pointer-checks'
+                  ' -Os -m64 -mno-sse -mpreferred-stack-boundary=3'
+                  ' -c -x c /dev/null -o .20355.tmp')
+        gccinv = GccInvocation(argstr.split())
+        self.assertEqual(gccinv.executable, 'gcc')
+        self.assertEqual(gccinv.sources, ['/dev/null'])
+
 
 if __name__ == '__main__':
     unittest.main()

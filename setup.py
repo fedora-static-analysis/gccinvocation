@@ -3,10 +3,10 @@
 from distutils.core import setup
 
 setup(name='gccinvocation',
-    version='0.0.1',
+    version='0.1',
     description='Library for parsing GCC command-line options',
     py_modules = ['gccinvocation'],
-    license='GPL3',
+    license='LGPLv2.1+',
     author='David Malcolm <dmalcolm@redhat.com>',
     url='https://github.com/fedora-static-analysis/gccinvocation',
     classifiers=(

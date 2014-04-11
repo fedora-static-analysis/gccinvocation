@@ -80,6 +80,8 @@ class GccInvocation:
         parser = argparse.ArgumentParser(add_help=False)
         parser.add_argument("-o", type=str)
 
+        parser.add_argument("-D", type=str, action='append', default=[])
+
         # Arguments that take a further param:
         parser.add_argument("-x", type=str)
         # (for now, drop them on the floor)
@@ -105,10 +107,10 @@ class GccInvocation:
 
         args, remainder = parser.parse_known_args(argv[1:])
 
+        self.defines = args.D
+
         for arg in remainder:
-            if arg.startswith('-D'):
-                self.defines.append(arg[2:])
-            elif arg.startswith('-I'):
+            if arg.startswith('-I'):
                 self.includepaths.append(arg[2:])
             elif arg.startswith('-') and arg != '-':
                 self.otherargs.append(arg)
@@ -516,9 +518,15 @@ class TestGccInvocation(unittest.TestCase):
         self.assertIn('KBUILD_BASENAME=KBUILD_STR(ipath_cq)',
                       gccinv.defines)
 
+    def test_space_after_dash_d(self):
+        # Note the space between the -D and its argument:
+        argstr = 'gcc -c -x c -D __KERNEL__ -D SOME_OTHER_DEFINE /dev/null -o /tmp/ccqbm5As.s'
+        gccinv = GccInvocation.from_cmdline(argstr)
+        self.assertEqual(gccinv.defines,
+                         ['__KERNEL__', 'SOME_OTHER_DEFINE'])
+        self.assertEqual(gccinv.sources,
+                         ['/dev/null'])
+
 
 if __name__ == '__main__':
     unittest.main()
-
-
-

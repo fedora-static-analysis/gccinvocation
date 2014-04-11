@@ -81,6 +81,8 @@ class GccInvocation:
         parser.add_argument("-o", type=str)
 
         parser.add_argument("-D", type=str, action='append', default=[])
+        parser.add_argument("-U", type=str, action='append', default=[])
+        parser.add_argument("-I", type=str, action='append', default=[])
 
         # Arguments that take a further param:
         parser.add_argument("-x", type=str)
@@ -108,11 +110,10 @@ class GccInvocation:
         args, remainder = parser.parse_known_args(argv[1:])
 
         self.defines = args.D
+        self.includepaths = args.I
 
         for arg in remainder:
-            if arg.startswith('-I'):
-                self.includepaths.append(arg[2:])
-            elif arg.startswith('-') and arg != '-':
+            if arg.startswith('-') and arg != '-':
                 self.otherargs.append(arg)
             else:
                 self.sources.append(arg)
@@ -518,7 +519,7 @@ class TestGccInvocation(unittest.TestCase):
         self.assertIn('KBUILD_BASENAME=KBUILD_STR(ipath_cq)',
                       gccinv.defines)
 
-    def test_space_after_dash_d(self):
+    def test_space_after_dash_D(self):
         # Note the space between the -D and its argument:
         argstr = 'gcc -c -x c -D __KERNEL__ -D SOME_OTHER_DEFINE /dev/null -o /tmp/ccqbm5As.s'
         gccinv = GccInvocation.from_cmdline(argstr)
@@ -527,6 +528,44 @@ class TestGccInvocation(unittest.TestCase):
         self.assertEqual(gccinv.sources,
                          ['/dev/null'])
 
+    def test_space_after_dash_I(self):
+        argstr = ('./install/libexec/gcc/x86_64-unknown-linux-gnu/4.9.0/cc1 -quiet'
+                  ' -nostdinc'
+                  ' -I somedir'
+                  ' -I some/other/dir'
+                  ' -D __KERNEL__'
+                  ' -D CONFIG_AS_CFI=1'
+                  ' -D CONFIG_AS_CFI_SIGNAL_FRAME=1'
+                  ' -D KBUILD_STR(s)=#s'
+                  ' -D KBUILD_BASENAME=KBUILD_STR(empty)'
+                  ' -D KBUILD_MODNAME=KBUILD_STR(empty)'
+                  ' scripts/mod/empty.c'
+                  ' -o -')
+        gccinv = GccInvocation.from_cmdline(argstr)
+        self.assertEqual(gccinv.defines,
+                         ['__KERNEL__',
+                          'CONFIG_AS_CFI=1',
+                          'CONFIG_AS_CFI_SIGNAL_FRAME=1',
+                          'KBUILD_STR(s)=#s',
+                          'KBUILD_BASENAME=KBUILD_STR(empty)',
+                          'KBUILD_MODNAME=KBUILD_STR(empty)'])
+        self.assertEqual(gccinv.sources,
+                         ['scripts/mod/empty.c'])
+
+    def test_space_after_dash_U(self):
+        argstr = ('./install/libexec/gcc/x86_64-unknown-linux-gnu/4.9.0/cc1'
+                  ' -E -lang-asm -quiet -nostdinc -C -C'
+                  '-P -P'
+                  ' -U x86'
+                  ' -isystem /some/dir'
+                  ' -include /some/path/to/kconfig.h'
+                  ' -MD arch/x86/vdso/.vdso.lds.d'
+                  ' arch/x86/vdso/vdso.lds.S'
+                  ' -o arch/x86/vdso/vdso.lds'
+                  ' -mtune=generic -march=x86-64 -fno-directives-only')
+        gccinv = GccInvocation.from_cmdline(argstr)
+        self.assertEqual(gccinv.sources,
+                         ['arch/x86/vdso/vdso.lds.S'])
 
 if __name__ == '__main__':
     unittest.main()

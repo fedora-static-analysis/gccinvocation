@@ -67,6 +67,8 @@ class GccInvocation:
 
         self.executable = argv[0]
         self.progname = os.path.basename(self.executable)
+        DRIVER_NAMES = ('c89', 'c99', 'cc', 'gcc', 'c++', 'g++', 'xgcc')
+        self.is_driver = self.progname in DRIVER_NAMES
         self.sources = []
         self.defines = []
         self.includepaths = []
@@ -78,6 +80,17 @@ class GccInvocation:
             return
 
         parser = argparse.ArgumentParser(add_help=False)
+
+        def add_flag_opt(flag):
+            parser.add_argument(flag, action='store_true')
+        def add_opt_with_param(flag):
+            parser.add_argument(flag, type=str)
+        def add_opt_NoDriverArg(flag):
+            if self.is_driver:
+                add_flag_opt(flag)
+            else:
+                add_opt_with_param(flag)
+
         parser.add_argument("-o", type=str)
 
         parser.add_argument("-D", type=str, action='append', default=[])
@@ -88,12 +101,18 @@ class GccInvocation:
         parser.add_argument("-x", type=str)
         # (for now, drop them on the floor)
 
-        # Arguments for dependency generation that take a file argument:
-        parser.add_argument("-MF", type=str)
-        parser.add_argument("-MT", type=str)
-        parser.add_argument("-MQ", type=str)
-        parser.add_argument("-MD", type=str)
+        # Arguments for dependency generation (in the order they appear
+        # in gcc/c-family/c.opt)
         # (for now, drop them on the floor)
+        add_flag_opt('-M')
+        add_opt_NoDriverArg('-MD')
+        add_opt_with_param('-MF')
+        add_flag_opt('-MG')
+        add_flag_opt('-MM')
+        add_opt_NoDriverArg('-MMD')
+        add_flag_opt('-MP')
+        add_opt_with_param('-MQ')
+        add_opt_with_param('-MT')
 
         # Various other arguments that take a 2nd argument:
         for arg in ['-include', '-imacros', '-idirafter', '-iprefix',
@@ -179,6 +198,7 @@ class TestGccInvocation(unittest.TestCase):
         gccinv = GccInvocation(args)
         self.assertEqual(gccinv.argv, args)
         self.assertEqual(gccinv.executable, 'gcc')
+        self.assert_(gccinv.is_driver)
         self.assertEqual(gccinv.sources, ['python-ethtool/ethtool.c'])
         self.assertEqual(gccinv.defines,
                          ['_GNU_SOURCE', 'NDEBUG', '_GNU_SOURCE',
@@ -246,6 +266,7 @@ class TestGccInvocation(unittest.TestCase):
         gccinv = GccInvocation(args.split())
         self.assertEqual(gccinv.executable, '/usr/bin/c++')
         self.assertEqual(gccinv.progname, 'c++')
+        self.assert_(gccinv.is_driver)
         self.assertEqual(gccinv.sources,
                          ['/builddir/build/BUILD/pyside-qt4.7+1.1.0/libpyside/dynamicqmetaobject.cpp'])
         self.assertIn('PYSIDE_EXPORTS', gccinv.defines)
@@ -302,7 +323,6 @@ class TestGccInvocation(unittest.TestCase):
         self.assertIn('/usr/lib/jvm/java-1.7.0-openjdk.x86_64/include/native_threads/include',
                       gccinv.includepaths)
         self.assertIn('-Wall', gccinv.otherargs)
-        self.assertIn('-MP', gccinv.otherargs)
 
     def test_restrict_to_one_source(self):
         args = ('gcc -fPIC -shared -flto -flto-partition=none'
@@ -406,6 +426,7 @@ class TestGccInvocation(unittest.TestCase):
         self.assertEqual(gccinv.executable,
                          '/usr/libexec/gcc/x86_64-redhat-linux/4.4.7/cc1')
         self.assertEqual(gccinv.progname, 'cc1')
+        self.assert_(not gccinv.is_driver)
         self.assertEqual(gccinv.sources,
                          ['drivers/media/pci/mantis/mantis_uart.c'])
 
@@ -414,6 +435,7 @@ class TestGccInvocation(unittest.TestCase):
         gccinv = GccInvocation(argstr.split())
         self.assertEqual(gccinv.executable, 'objdump')
         self.assertEqual(gccinv.progname, 'objdump')
+        self.assert_(not gccinv.is_driver)
 
     def test_dash_x(self):
         argstr = ('gcc -D__KERNEL__ -Wall -Wundef -Wstrict-prototypes'
@@ -453,6 +475,7 @@ class TestGccInvocation(unittest.TestCase):
                   ' --build-id /tmp/cckRREmI.o')
         gccinv = GccInvocation(argstr.split())
         self.assertEqual(gccinv.progname, 'collect2')
+        self.assert_(not gccinv.is_driver)
         self.assertEqual(gccinv.sources, [])
 
     def test_link(self):
@@ -566,6 +589,128 @@ class TestGccInvocation(unittest.TestCase):
         gccinv = GccInvocation.from_cmdline(argstr)
         self.assertEqual(gccinv.sources,
                          ['arch/x86/vdso/vdso.lds.S'])
+
+    def test_MD_without_arg(self):
+        argstr = ('/usr/bin/gcc'
+                  ' -Wp,-MD,arch/x86/purgatory/.purgatory.o.d'
+                  ' -nostdinc'
+                  ' -isystem'
+                  ' /usr/lib/gcc/x86_64-redhat-linux/5.1.1/include'
+                  ' -I./arch/x86/include'
+                  ' -Iarch/x86/include/generated/uapi'
+                  ' -Iarch/x86/include/generated'
+                  ' -Iinclude'
+                  ' -I./arch/x86/include/uapi'
+                  ' -Iarch/x86/include/generated/uapi'
+                  ' -I./include/uapi'
+                  ' -Iinclude/generated/uapi'
+                  ' -include'
+                  ' ./include/linux/kconfig.h'
+                  ' -D__KERNEL__'
+                  ' -fno-strict-aliasing'
+                  ' -Wall'
+                  ' -Wstrict-prototypes'
+                  ' -fno-zero-initialized-in-bss'
+                  ' -fno-builtin'
+                  ' -ffreestanding'
+                  ' -c'
+                  ' -MD'
+                  ' -Os'
+                  ' -mcmodel=large'
+                  ' -m64'
+                  ' -DKBUILD_STR(s)=#s'
+                  ' -DKBUILD_BASENAME=KBUILD_STR(purgatory)'
+                  ' -DKBUILD_MODNAME=KBUILD_STR(purgatory)'
+                  ' -c'
+                  ' -o'
+                  ' arch/x86/purgatory/purgatory.o'
+                  ' arch/x86/purgatory/purgatory.c')
+        gccinv = GccInvocation.from_cmdline(argstr)
+        self.assertEqual(gccinv.sources,
+                         ['arch/x86/purgatory/purgatory.c'])
+
+    def test_openssl_invocation(self):
+        argstr = ('/usr/bin/gcc'
+                  ' -Werror'
+                  ' -D'
+                  ' OPENSSL_DOING_MAKEDEPEND'
+                  ' -M'
+                  ' -fPIC'
+                  ' -DOPENSSL_PIC'
+                  ' -DZLIB'
+                  ' -DOPENSSL_THREADS'
+                  ' -D_REENTRANT'
+                  ' -DDSO_DLFCN'
+                  ' -DHAVE_DLFCN_H'
+                  ' -DKRB5_MIT'
+                  ' -m64'
+                  ' -DL_ENDIAN'
+                  ' -DTERMIO'
+                  ' -Wall'
+                  ' -O2'
+                  ' -g'
+                  ' -pipe'
+                  ' -Wall'
+                  ' -Werror=format-security'
+                  ' -Wp,-D_FORTIFY_SOURCE=2'
+                  ' -fexceptions'
+                  ' -fstack-protector-strong'
+                  ' --param=ssp-buffer-size=4'
+                  ' -grecord-gcc-switches'
+                  ' -m64'
+                  ' -mtune=generic'
+                  ' -Wa,--noexecstack'
+                  ' -DPURIFY'
+                  ' -DOPENSSL_IA32_SSE2'
+                  ' -DOPENSSL_BN_ASM_MONT'
+                  ' -DOPENSSL_BN_ASM_MONT5'
+                  ' -DOPENSSL_BN_ASM_GF2m'
+                  ' -DSHA1_ASM'
+                  ' -DSHA256_ASM'
+                  ' -DSHA512_ASM'
+                  ' -DMD5_ASM'
+                  ' -DAES_ASM'
+                  ' -DVPAES_ASM'
+                  ' -DBSAES_ASM'
+                  ' -DWHIRLPOOL_ASM'
+                  ' -DGHASH_ASM'
+                  ' -I.'
+                  ' -I..'
+                  ' -I../include'
+                  ' -DOPENSSL_NO_DEPRECATED'
+                  ' -DOPENSSL_NO_EC2M'
+                  ' -DOPENSSL_NO_EC_NISTP_64_GCC_128'
+                  ' -DOPENSSL_NO_GMP'
+                  ' -DOPENSSL_NO_GOST'
+                  ' -DOPENSSL_NO_JPAKE'
+                  ' -DOPENSSL_NO_MDC2'
+                  ' -DOPENSSL_NO_RC5'
+                  ' -DOPENSSL_NO_RSAX'
+                  ' -DOPENSSL_NO_SCTP'
+                  ' -DOPENSSL_NO_SRP'
+                  ' -DOPENSSL_NO_STORE'
+                  ' -DOPENSSL_NO_UNIT_TEST'
+                  ' cryptlib.c'
+                  ' mem.c'
+                  ' mem_clr.c'
+                  ' mem_dbg.c'
+                  ' cversion.c'
+                  ' ex_data.c'
+                  ' cpt_err.c'
+                  ' ebcdic.c'
+                  ' uid.c'
+                  ' o_time.c'
+                  ' o_str.c'
+                  ' o_dir.c'
+                  ' o_fips.c'
+                  ' o_init.c'
+                  ' fips_ers.c')
+        gccinv = GccInvocation.from_cmdline(argstr)
+        self.assertEqual(gccinv.sources,
+                         ['cryptlib.c', 'mem.c', 'mem_clr.c', 'mem_dbg.c',
+                          'cversion.c', 'ex_data.c', 'cpt_err.c', 'ebcdic.c',
+                          'uid.c', 'o_time.c', 'o_str.c', 'o_dir.c', 'o_fips.c',
+                          'o_init.c', 'fips_ers.c'])
 
 if __name__ == '__main__':
     unittest.main()

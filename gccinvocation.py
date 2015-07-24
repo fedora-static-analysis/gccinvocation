@@ -198,7 +198,7 @@ class TestGccInvocation(unittest.TestCase):
         gccinv = GccInvocation(args)
         self.assertEqual(gccinv.argv, args)
         self.assertEqual(gccinv.executable, 'gcc')
-        self.assert_(gccinv.is_driver)
+        self.assertTrue(gccinv.is_driver)
         self.assertEqual(gccinv.sources, ['python-ethtool/ethtool.c'])
         self.assertEqual(gccinv.defines,
                          ['_GNU_SOURCE', 'NDEBUG', '_GNU_SOURCE',
@@ -266,7 +266,7 @@ class TestGccInvocation(unittest.TestCase):
         gccinv = GccInvocation(args.split())
         self.assertEqual(gccinv.executable, '/usr/bin/c++')
         self.assertEqual(gccinv.progname, 'c++')
-        self.assert_(gccinv.is_driver)
+        self.assertTrue(gccinv.is_driver)
         self.assertEqual(gccinv.sources,
                          ['/builddir/build/BUILD/pyside-qt4.7+1.1.0/libpyside/dynamicqmetaobject.cpp'])
         self.assertIn('PYSIDE_EXPORTS', gccinv.defines)
@@ -426,7 +426,7 @@ class TestGccInvocation(unittest.TestCase):
         self.assertEqual(gccinv.executable,
                          '/usr/libexec/gcc/x86_64-redhat-linux/4.4.7/cc1')
         self.assertEqual(gccinv.progname, 'cc1')
-        self.assert_(not gccinv.is_driver)
+        self.assertFalse(gccinv.is_driver)
         self.assertEqual(gccinv.sources,
                          ['drivers/media/pci/mantis/mantis_uart.c'])
 
@@ -435,7 +435,7 @@ class TestGccInvocation(unittest.TestCase):
         gccinv = GccInvocation(argstr.split())
         self.assertEqual(gccinv.executable, 'objdump')
         self.assertEqual(gccinv.progname, 'objdump')
-        self.assert_(not gccinv.is_driver)
+        self.assertFalse(gccinv.is_driver)
 
     def test_dash_x(self):
         argstr = ('gcc -D__KERNEL__ -Wall -Wundef -Wstrict-prototypes'
@@ -475,7 +475,7 @@ class TestGccInvocation(unittest.TestCase):
                   ' --build-id /tmp/cckRREmI.o')
         gccinv = GccInvocation(argstr.split())
         self.assertEqual(gccinv.progname, 'collect2')
-        self.assert_(not gccinv.is_driver)
+        self.assertFalse(gccinv.is_driver)
         self.assertEqual(gccinv.sources, [])
 
     def test_link(self):
